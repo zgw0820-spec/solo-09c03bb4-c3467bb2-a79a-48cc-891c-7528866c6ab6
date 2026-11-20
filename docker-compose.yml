@@ -1,0 +1,36 @@
+name: rescue-tftp
+
+# Both services must agree on the image so the API can verify SHA-256.
+# Override on the command line, e.g.:
+#   IMAGE_SIZE=33556480 docker compose up --build   # 65540*512, exercises the 65535->0 wrap
+x-image-env: &image-env
+  IMAGE_SEED: ${IMAGE_SEED:-rescue-image-v1}
+  IMAGE_SIZE: ${IMAGE_SIZE:-131072}
+  IMAGE_FILENAME: rescue.img
+
+services:
+  tftp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    environment:
+      <<: *image-env
+      TFTP_BIND_HOST: 0.0.0.0
+      TFTP_PORT: 69
+      TFTP_TIMEOUT: 1.0
+      TFTP_MAX_RETRIES: 5
+    ports:
+      - "6969:69/udp"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      <<: *image-env
+      TFTP_SERVER_HOST: tftp-server
+      TFTP_SERVER_PORT: 69
+    ports:
+      - "8000:8000"
+    depends_on:
+      - tftp-server
